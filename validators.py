@@ -42,7 +42,7 @@ class RealKRSClient:
 
                 if yaml_name.lower() != krs_name.lower():
                     return (
-                        False,
+                        True,
                         f"Niezgodność nazwy organizacji: w YAML jest '{yaml_name}', ale w KRS jest '{krs_name}'",
                     )
 
