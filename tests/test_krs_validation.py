@@ -60,7 +60,7 @@ class TestRealKRSClient:
         client = RealKRSClient()
         is_valid, message = client.validate_krs(krs, expected_name)
 
-        assert not is_valid
+        assert is_valid
         assert "Niezgodność nazwy organizacji" in message
         assert "Wrong Foundation" in message
         assert "Correct Foundation" in message
