@@ -156,3 +156,106 @@ class TestSlugConflictValidator:
         # Should pass because "Info" != "info"
         assert is_valid
         assert len(errors) == 0
+
+
+class TestSlugConflictValidatorWithLists:
+    """Test slug conflict validation with list slugs."""
+
+    def test_list_slug_with_reserved_conflict(self):
+        """Test that reserved slug in a list is detected."""
+        validator = SlugConflictValidator("adres")
+
+        files_to_check = ["org.yaml"]
+        all_organizations = {
+            "valid-slug": "org.yaml",
+            "info": "org.yaml",  # Reserved slug in the same file
+            "another-valid": "org.yaml",
+        }
+
+        is_valid, errors = validator.validate_conflicts(
+            files_to_check, all_organizations
+        )
+
+        assert not is_valid
+        assert len(errors) == 1
+        assert "Zarezerwowany adres 'info' używany w pliku org.yaml" in errors[0]
+
+    def test_list_slug_with_multiple_reserved_conflicts(self):
+        """Test that multiple reserved slugs in a list are detected."""
+        validator = SlugConflictValidator("adres")
+
+        files_to_check = ["org.yaml"]
+        all_organizations = {
+            "valid-slug": "org.yaml",
+            "info": "org.yaml",  # Reserved
+            "organizacje": "org.yaml",  # Reserved
+            "404": "org.yaml",  # Reserved
+        }
+
+        is_valid, errors = validator.validate_conflicts(
+            files_to_check, all_organizations
+        )
+
+        assert not is_valid
+        assert len(errors) == 3
+        assert any("Zarezerwowany adres 'info'" in error for error in errors)
+        assert any("Zarezerwowany adres 'organizacje'" in error for error in errors)
+        assert any("Zarezerwowany adres '404'" in error for error in errors)
+
+    def test_list_slug_no_conflicts(self):
+        """Test that list of valid slugs passes without conflicts."""
+        validator = SlugConflictValidator("adres")
+
+        files_to_check = ["org.yaml"]
+        all_organizations = {
+            "slug-1": "org.yaml",
+            "slug-2": "org.yaml",
+            "slug-3": "org.yaml",
+            "other-org": "other.yaml",
+        }
+
+        is_valid, errors = validator.validate_conflicts(
+            files_to_check, all_organizations
+        )
+
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_mixed_list_and_single_slugs(self):
+        """Test validation with mix of list and single slug organizations."""
+        validator = SlugConflictValidator("adres")
+
+        files_to_check = ["list_org.yaml", "single_org.yaml"]
+        all_organizations = {
+            "slug-1": "list_org.yaml",  # List slug
+            "slug-2": "list_org.yaml",  # List slug
+            "single-slug": "single_org.yaml",  # Single slug
+            "info": "list_org.yaml",  # Reserved in list
+        }
+
+        is_valid, errors = validator.validate_conflicts(
+            files_to_check, all_organizations
+        )
+
+        assert not is_valid
+        assert len(errors) == 1
+        assert "Zarezerwowany adres 'info' używany w pliku list_org.yaml" in errors[0]
+
+    def test_list_slug_reserved_not_being_checked(self):
+        """Test that reserved slugs in list of non-checked files don't trigger errors."""
+        validator = SlugConflictValidator("adres")
+
+        files_to_check = ["safe_org.yaml"]
+        all_organizations = {
+            "safe-slug-1": "safe_org.yaml",
+            "safe-slug-2": "safe_org.yaml",
+            "info": "other_org.yaml",  # Reserved but in different file not being checked
+            "organizacje": "other_org.yaml",  # Reserved but not being checked
+        }
+
+        is_valid, errors = validator.validate_conflicts(
+            files_to_check, all_organizations
+        )
+
+        assert is_valid
+        assert len(errors) == 0
