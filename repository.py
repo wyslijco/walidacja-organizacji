@@ -66,15 +66,19 @@ class FileSystemRepository(OrganizationRepository):
                 with open(yaml_file, "r", encoding="utf-8") as f:
                     data = yaml.safe_load(f)
                     if data and slug_field in data:
-                        slug = data[slug_field]
-                        if slug in slug_to_file:
-                            errors.append(
-                                f"Duplikat {slug_field} '{slug}' znaleziony w {yaml_file.name} i {slug_to_file[slug]}"
-                            )
-                        else:
-                            slug_to_file[slug] = str(
-                                self.organizations_dir / yaml_file.name
-                            )
+                        slug_data = data[slug_field]
+                        slugs = (
+                            slug_data if isinstance(slug_data, list) else [slug_data]
+                        )
+                        for slug in slugs:
+                            if slug in slug_to_file:
+                                errors.append(
+                                    f"Duplikat {slug_field} '{slug}' znaleziony w {yaml_file.name} i {slug_to_file[slug]}"
+                                )
+                            else:
+                                slug_to_file[slug] = str(
+                                    self.organizations_dir / yaml_file.name
+                                )
             except Exception as e:
                 errors.append(f"Błąd wczytywania pliku {yaml_file.name}: {e}")
 

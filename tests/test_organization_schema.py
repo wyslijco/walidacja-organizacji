@@ -110,6 +110,127 @@ class TestOrganizationSchemaValidator:
         assert not is_valid
         assert any("musi być niepustym ciągiem znaków" in error for error in errors)
 
+    def test_slug_as_list_valid(self, mock_krs_client):
+        """Test that slug field as a list of valid strings passes validation."""
+        mock_krs_client.set_default_response(True, "")
+        validator = OrganizationSchemaValidator("adres", mock_krs_client)
+        data = {
+            "nazwa": "Test",
+            "adres": ["test-slug-1", "test-slug-2", "test-slug-3"],  # List of slugs
+            "strona": "https://test.org",
+            "krs": "1234567890",
+            "dostawa": {
+                "ulica": "test",
+                "kod": "12-345",
+                "miasto": "test",
+                "telefon": "123456789",
+            },
+            "produkty": [{"nazwa": "test", "link": "https://test.com"}],
+        }
+
+        is_valid, errors = validator.validate_structure(data)
+
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_slug_as_list_with_invalid_format(self, mock_krs_client):
+        """Test that invalid slug format in list is detected."""
+        mock_krs_client.set_default_response(True, "")
+        validator = OrganizationSchemaValidator("adres", mock_krs_client)
+        data = {
+            "nazwa": "Test",
+            "adres": ["valid-slug", "INVALID-SLUG!", "another-valid"],  # One invalid
+            "strona": "https://test.org",
+            "krs": "1234567890",
+            "dostawa": {
+                "ulica": "test",
+                "kod": "12-345",
+                "miasto": "test",
+                "telefon": "123456789",
+            },
+            "produkty": [{"nazwa": "test", "link": "https://test.com"}],
+        }
+
+        is_valid, errors = validator.validate_structure(data)
+
+        assert not is_valid
+        assert any(
+            "Nieprawidłowy format adres: INVALID-SLUG!" in error for error in errors
+        )
+
+    def test_slug_as_list_with_empty_string(self, mock_krs_client):
+        """Test that empty string in slug list is detected."""
+        mock_krs_client.set_default_response(True, "")
+        validator = OrganizationSchemaValidator("adres", mock_krs_client)
+        data = {
+            "nazwa": "Test",
+            "adres": ["valid-slug", "", "another-valid"],  # One empty
+            "strona": "https://test.org",
+            "krs": "1234567890",
+            "dostawa": {
+                "ulica": "test",
+                "kod": "12-345",
+                "miasto": "test",
+                "telefon": "123456789",
+            },
+            "produkty": [{"nazwa": "test", "link": "https://test.com"}],
+        }
+
+        is_valid, errors = validator.validate_structure(data)
+
+        assert not is_valid
+        assert any("musi być niepustym ciągiem znaków" in error for error in errors)
+
+    def test_slug_as_empty_list(self, mock_krs_client):
+        """Test that empty list for slug field is handled."""
+        mock_krs_client.set_default_response(True, "")
+        validator = OrganizationSchemaValidator("adres", mock_krs_client)
+        data = {
+            "nazwa": "Test",
+            "adres": [],  # Empty list
+            "strona": "https://test.org",
+            "krs": "1234567890",
+            "dostawa": {
+                "ulica": "test",
+                "kod": "12-345",
+                "miasto": "test",
+                "telefon": "123456789",
+            },
+            "produkty": [{"nazwa": "test", "link": "https://test.com"}],
+        }
+
+        is_valid, errors = validator.validate_structure(data)
+
+        # Empty list should be valid (no slugs to validate)
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_slug_as_invalid_type(self, mock_krs_client):
+        """Test that non-string, non-list slug type is rejected."""
+        mock_krs_client.set_default_response(True, "")
+        validator = OrganizationSchemaValidator("adres", mock_krs_client)
+        data = {
+            "nazwa": "Test",
+            "adres": 123,  # Invalid type (number)
+            "strona": "https://test.org",
+            "krs": "1234567890",
+            "dostawa": {
+                "ulica": "test",
+                "kod": "12-345",
+                "miasto": "test",
+                "telefon": "123456789",
+            },
+            "produkty": [{"nazwa": "test", "link": "https://test.com"}],
+        }
+
+        is_valid, errors = validator.validate_structure(data)
+
+        assert not is_valid
+        assert any(
+            "musi być ciągiem znaków lub listą ciągów znaków" in error
+            for error in errors
+        )
+
 
 class TestDeliveryValidation:
     """Test delivery data validation."""

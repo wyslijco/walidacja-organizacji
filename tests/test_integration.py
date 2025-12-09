@@ -236,3 +236,161 @@ class TestIntegrationValidation:
 
         finally:
             sys.stdout = sys.__stdout__
+
+
+class TestIntegrationWithListSlugs:
+    """Integration tests for list slug functionality."""
+
+    def test_validation_with_list_slugs_success(
+        self, mock_repository, mock_krs_client, valid_organization_data
+    ):
+        """Test validation with organization using list of slugs."""
+        # Modify data to use list of slugs
+        org_data = valid_organization_data.copy()
+        org_data["adres"] = ["test-foundation", "test-org", "foundation-test"]
+
+        mock_repository.set_organizations(
+            {
+                "test-foundation": "test.yaml",
+                "test-org": "test.yaml",
+                "foundation-test": "test.yaml",
+            }
+        )
+        mock_repository.set_file_data("test.yaml", org_data)
+        mock_krs_client.set_response("1234567890", True, "")
+
+        validator = OrganizationValidator(mock_repository, "adres")
+        validator.schema_validator.krs_client = mock_krs_client
+
+        captured_output = StringIO()
+        sys.stdout = captured_output
+
+        try:
+            result = validator.validate_files(["test.yaml"])
+
+            assert result is True
+
+            output = captured_output.getvalue()
+            assert "✅ Walidacja struktury zakończona pomyślnie" in output
+            assert "✅ Nie znaleziono konfliktów adresów" in output
+
+        finally:
+            sys.stdout = sys.__stdout__
+
+    def test_validation_with_list_slugs_reserved_conflict(
+        self, mock_repository, mock_krs_client, valid_organization_data
+    ):
+        """Test validation fails when list contains reserved slug."""
+        org_data = valid_organization_data.copy()
+        org_data["adres"] = [
+            "test-foundation",
+            "info",
+            "test-org",
+        ]  # 'info' is reserved
+
+        mock_repository.set_organizations(
+            {
+                "test-foundation": "test.yaml",
+                "info": "test.yaml",
+                "test-org": "test.yaml",
+            }
+        )
+        mock_repository.set_file_data("test.yaml", org_data)
+        mock_krs_client.set_response("1234567890", True, "")
+
+        validator = OrganizationValidator(mock_repository, "adres")
+        validator.schema_validator.krs_client = mock_krs_client
+
+        captured_output = StringIO()
+        sys.stdout = captured_output
+
+        try:
+            result = validator.validate_files(["test.yaml"])
+
+            assert result is False
+
+            output = captured_output.getvalue()
+            assert "❌ Znaleziono konflikty adresów" in output
+            assert "Zarezerwowany adres 'info'" in output
+
+        finally:
+            sys.stdout = sys.__stdout__
+
+    def test_validation_mixed_single_and_list_slugs(
+        self, mock_repository, mock_krs_client, valid_organization_data
+    ):
+        """Test validation with mix of single and list slug organizations."""
+        # Organization 1 with list of slugs
+        org1_data = valid_organization_data.copy()
+        org1_data["adres"] = ["org-1-slug-1", "org-1-slug-2"]
+        org1_data["krs"] = "1234567890"
+
+        # Organization 2 with single slug
+        org2_data = valid_organization_data.copy()
+        org2_data["adres"] = "org-2-single-slug"
+        org2_data["krs"] = "0987654321"
+
+        mock_repository.set_organizations(
+            {
+                "org-1-slug-1": "org1.yaml",
+                "org-1-slug-2": "org1.yaml",
+                "org-2-single-slug": "org2.yaml",
+            }
+        )
+        mock_repository.set_file_data("org1.yaml", org1_data)
+        mock_repository.set_file_data("org2.yaml", org2_data)
+
+        mock_krs_client.set_response("1234567890", True, "")
+        mock_krs_client.set_response("0987654321", True, "")
+
+        validator = OrganizationValidator(mock_repository, "adres")
+        validator.schema_validator.krs_client = mock_krs_client
+
+        captured_output = StringIO()
+        sys.stdout = captured_output
+
+        try:
+            result = validator.validate_files(["org1.yaml", "org2.yaml"])
+
+            assert result is True
+
+            output = captured_output.getvalue()
+            assert "Walidacja 2 pliku/ów organizacji" in output
+
+        finally:
+            sys.stdout = sys.__stdout__
+
+    def test_validation_list_with_invalid_slug_format(
+        self, mock_repository, mock_krs_client, valid_organization_data
+    ):
+        """Test validation fails when list contains invalid slug format."""
+        org_data = valid_organization_data.copy()
+        org_data["adres"] = ["valid-slug", "INVALID!", "another-valid"]
+
+        mock_repository.set_organizations(
+            {
+                "valid-slug": "test.yaml",
+                "INVALID!": "test.yaml",
+                "another-valid": "test.yaml",
+            }
+        )
+        mock_repository.set_file_data("test.yaml", org_data)
+        mock_krs_client.set_response("1234567890", True, "")
+
+        validator = OrganizationValidator(mock_repository, "adres")
+        validator.schema_validator.krs_client = mock_krs_client
+
+        captured_output = StringIO()
+        sys.stdout = captured_output
+
+        try:
+            result = validator.validate_files(["test.yaml"])
+
+            assert result is False
+
+            output = captured_output.getvalue()
+            assert "❌ Walidacja struktury nie powiodła się" in output
+            assert "Nieprawidłowy format adres: INVALID!" in output
+
+        finally:
+            sys.stdout = sys.__stdout__

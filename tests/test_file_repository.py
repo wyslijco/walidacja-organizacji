@@ -186,3 +186,132 @@ class TestFileSystemRepository:
 
             assert len(errors) == 0
             assert organizations == {"test-slug": f"{temp_dir}/test.yaml"}
+
+
+class TestFileSystemRepositoryWithListSlugs:
+    """Test file system repository with list slugs."""
+
+    def test_load_organizations_with_list_slugs(self):
+        """Test loading organization with list of slugs."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            org_data = {
+                "nazwa": "Test Org",
+                "adres": ["slug-1", "slug-2", "slug-3"],
+            }
+
+            org_file = Path(temp_dir) / "org.yaml"
+            with open(org_file, "w") as f:
+                yaml.dump(org_data, f)
+
+            repository = FileSystemRepository(temp_dir)
+            organizations, errors = repository.load_all_organizations("adres")
+
+            assert len(errors) == 0
+            assert len(organizations) == 3
+            assert organizations == {
+                "slug-1": f"{temp_dir}/org.yaml",
+                "slug-2": f"{temp_dir}/org.yaml",
+                "slug-3": f"{temp_dir}/org.yaml",
+            }
+
+    def test_duplicate_between_list_slug_and_single_slug(self):
+        """Test detecting duplicate between list slug and single slug."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            org1_data = {"nazwa": "Org 1", "adres": ["slug-1", "duplicate", "slug-3"]}
+            org2_data = {"nazwa": "Org 2", "adres": "duplicate"}
+
+            org1_file = Path(temp_dir) / "org1.yaml"
+            org2_file = Path(temp_dir) / "org2.yaml"
+
+            with open(org1_file, "w") as f:
+                yaml.dump(org1_data, f)
+            with open(org2_file, "w") as f:
+                yaml.dump(org2_data, f)
+
+            repository = FileSystemRepository(temp_dir)
+            organizations, errors = repository.load_all_organizations("adres")
+
+            assert len(errors) == 1
+            assert "Duplikat adres 'duplicate'" in errors[0]
+            assert "org1.yaml" in errors[0] and "org2.yaml" in errors[0]
+
+    def test_duplicate_within_same_list(self):
+        """Test that duplicate slugs within the same list are detected."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            org_data = {
+                "nazwa": "Test Org",
+                "adres": ["slug-1", "duplicate", "duplicate"],
+            }
+
+            org_file = Path(temp_dir) / "org.yaml"
+            with open(org_file, "w") as f:
+                yaml.dump(org_data, f)
+
+            repository = FileSystemRepository(temp_dir)
+            organizations, errors = repository.load_all_organizations("adres")
+
+            assert len(errors) == 1
+            assert "Duplikat adres 'duplicate'" in errors[0]
+
+    def test_duplicate_between_two_list_slugs(self):
+        """Test detecting duplicate between two organizations with list slugs."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            org1_data = {"nazwa": "Org 1", "adres": ["slug-1", "shared-slug", "slug-2"]}
+            org2_data = {"nazwa": "Org 2", "adres": ["slug-3", "shared-slug", "slug-4"]}
+
+            org1_file = Path(temp_dir) / "org1.yaml"
+            org2_file = Path(temp_dir) / "org2.yaml"
+
+            with open(org1_file, "w") as f:
+                yaml.dump(org1_data, f)
+            with open(org2_file, "w") as f:
+                yaml.dump(org2_data, f)
+
+            repository = FileSystemRepository(temp_dir)
+            organizations, errors = repository.load_all_organizations("adres")
+
+            assert len(errors) == 1
+            assert "Duplikat adres 'shared-slug'" in errors[0]
+
+    def test_mixed_single_and_list_slugs_no_duplicates(self):
+        """Test loading mix of single and list slugs without duplicates."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            org1_data = {"nazwa": "Org 1", "adres": ["slug-1", "slug-2"]}
+            org2_data = {"nazwa": "Org 2", "adres": "slug-3"}
+            org3_data = {"nazwa": "Org 3", "adres": ["slug-4", "slug-5"]}
+
+            org1_file = Path(temp_dir) / "org1.yaml"
+            org2_file = Path(temp_dir) / "org2.yaml"
+            org3_file = Path(temp_dir) / "org3.yaml"
+
+            with open(org1_file, "w") as f:
+                yaml.dump(org1_data, f)
+            with open(org2_file, "w") as f:
+                yaml.dump(org2_data, f)
+            with open(org3_file, "w") as f:
+                yaml.dump(org3_data, f)
+
+            repository = FileSystemRepository(temp_dir)
+            organizations, errors = repository.load_all_organizations("adres")
+
+            assert len(errors) == 0
+            assert len(organizations) == 5
+            assert all(
+                slug in organizations
+                for slug in ["slug-1", "slug-2", "slug-3", "slug-4", "slug-5"]
+            )
+
+    def test_empty_list_slug(self):
+        """Test handling organization with empty list of slugs."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            org_data = {"nazwa": "Test Org", "adres": []}
+
+            org_file = Path(temp_dir) / "org.yaml"
+            with open(org_file, "w") as f:
+                yaml.dump(org_data, f)
+
+            repository = FileSystemRepository(temp_dir)
+            organizations, errors = repository.load_all_organizations("adres")
+
+            assert len(errors) == 0
+            assert len(organizations) == 0

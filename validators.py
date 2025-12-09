@@ -103,15 +103,26 @@ class OrganizationSchemaValidator:
                     print(f"  ⚠️  {error_msg}")
 
         if self.slug_field in data:
-            slug = data[self.slug_field]
-            if not isinstance(slug, str) or not slug.strip():
+            slug_data: str | list[str] = data[self.slug_field]
+            slugs: list[str] = []
+            if isinstance(slug_data, str):
+                slugs = [slug_data]
+            elif isinstance(slug_data, list):
+                slugs = slug_data
+            else:
                 errors.append(
-                    f"Nieprawidłowy {self.slug_field}: musi być niepustym ciągiem znaków"
+                    f"Nieprawidłowy format {self.slug_field}: musi być ciągiem znaków lub listą ciągów znaków"
                 )
-            elif not re.fullmatch(r"[a-z0-9-]+", slug):
-                errors.append(
-                    f"Nieprawidłowy format {self.slug_field}: {slug} (dozwolone tylko małe litery, cyfry i myślniki)"
-                )
+
+            for slug in slugs:
+                if not slug.strip():
+                    errors.append(
+                        f"Nieprawidłowy {self.slug_field}: musi być niepustym ciągiem znaków"
+                    )
+                elif not re.fullmatch(r"[a-z0-9-]+", slug):
+                    errors.append(
+                        f"Nieprawidłowy format {self.slug_field}: {slug} (dozwolone tylko małe litery, cyfry i myślniki)"
+                    )
 
         # Validate dostawa structure
         if "dostawa" in data:
