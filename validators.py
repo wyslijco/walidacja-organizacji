@@ -42,7 +42,7 @@ class RealKRSClient:
 
                 if yaml_name.lower() != krs_name.lower():
                     return (
-                        True,
+                        False,
                         f"Niezgodność nazwy organizacji: w YAML jest '{yaml_name}', ale w KRS jest '{krs_name}'",
                     )
 
@@ -95,7 +95,7 @@ class OrganizationSchemaValidator:
                 errors.append(f"Nieprawidłowy format KRS: {krs} (oczekiwano 10 cyfr)")
             else:
                 # Validate KRS against external API, including name match
-                org_name = data.get("nazwa")
+                org_name = data.get("nazwa_w_krs")
                 is_valid, error_msg = self.krs_client.validate_krs(krs, org_name)
                 if not is_valid:
                     errors.append(f"Walidacja KRS nie powiodła się: {error_msg}")
